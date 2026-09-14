@@ -1,0 +1,150 @@
+# 온프레미스 TCO 가정값
+#
+# ⚠️ 이 파일의 모든 값은 **가정**이며, API로 얻을 수 없는 유일한 영역이다.
+#    그래서 가장 정직해야 하는 영역이다. (ADR-0004)
+#
+# 규칙
+#   1. 코드에 숫자를 박지 않는다. 모든 TCO 파라미터는 여기에만 존재한다.
+#   2. 모든 값에 source 와 confidence 를 붙인다.
+#   3. confidence: low 인 값은 전부 민감도 분석 대상이다.
+#   4. 최종 리포트는 단일 숫자가 아니라 범위로 제시한다.
+#
+# confidence 등급
+#   high   — 공개 요금표·공식 스펙 등 출처가 명확하고 검증 가능
+#   medium — 공개 자료 기반이나 조건(계약·규모)에 따라 변동
+#   low    — 추정값. 반드시 민감도 분석에 포함할 것
+#
+# 상태: PLACEHOLDER — Week 7 착수 전 실제 견적·요금표로 교체할 것
+
+version: 1
+currency: KRW
+
+# ---------------------------------------------------------------------------
+# 환율
+# ---------------------------------------------------------------------------
+fx:
+  usd_krw:
+    value: null              # TODO: 수집 시점 환율로 채울 것
+    source: "TODO: 한국은행 고시환율 또는 수집 API"
+    confidence: low
+    sensitivity: true
+
+# ---------------------------------------------------------------------------
+# 하드웨어 — 전부 TODO. 실제 견적 또는 공개 가격으로 채울 것
+# ---------------------------------------------------------------------------
+hardware:
+  # 트레이스에 등장하는 GPU 세대 (V100/T4) 와
+  # 현행 세대(H100/A100) 를 모두 정의해 비교 가능하게 한다.
+  # gpu_mapping.yaml 의 매핑과 키를 일치시킬 것.
+  nodes: {}
+  # 예시 구조 (값 없음 — 채울 때 이 형태를 따를 것):
+  #
+  # h100_sxm_8gpu:
+  #   gpu_model: "H100-SXM-80GB"
+  #   gpus_per_node: 8
+  #   capex_krw:
+  #     value: null
+  #     source: "TODO: 벤더 견적 또는 공개 리스트가"
+  #     confidence: low
+  #     sensitivity: true
+  #   gpu_tdp_kw:
+  #     value: null
+  #     source: "TODO: NVIDIA 공식 데이터시트"
+  #     confidence: high        # 스펙시트 값이므로 확정 가능
+  #     sensitivity: false
+  #   node_overhead_kw:         # CPU·메모리·팬·NIC 등 GPU 외 소비
+  #     value: null
+  #     source: "TODO: 서버 스펙시트"
+  #     confidence: medium
+  #     sensitivity: true
+
+# ---------------------------------------------------------------------------
+# 전력 · 냉각
+# ---------------------------------------------------------------------------
+power:
+  electricity_price_krw_per_kwh:
+    value: null
+    source: "TODO: 한국전력 산업용 요금표. 계절·시간대별 차등이 있으므로 가중평균 산출 근거를 함께 기록할 것"
+    confidence: low
+    sensitivity: true
+
+  pue:
+    value: null
+    source: "TODO: 목표 데이터센터 실측 또는 국내 평균 공개 자료"
+    confidence: low
+    sensitivity: true
+    note: "PUE는 시설 등급에 따라 편차가 크다. 단일 값 대신 범위로 다룰 것."
+
+  idle_power_ratio:
+    value: null
+    source: "TODO: 실측 또는 문헌"
+    confidence: low
+    sensitivity: true
+    note: >
+      GPU는 유휴 상태에서도 전력을 소비한다.
+      TDP × 100%로 계산하면 과대, 유휴 전력을 0으로 두면 과소 계상된다.
+      실효 전력 = TDP × (idle_power_ratio + (1 - idle_power_ratio) × utilization)
+
+# ---------------------------------------------------------------------------
+# 감가상각
+# ---------------------------------------------------------------------------
+depreciation:
+  years:
+    value: null
+    source: "TODO: 세법상 내용연수와 기술적 진부화 시점이 다르다. 양쪽 시나리오를 모두 산출할 것"
+    confidence: low
+    sensitivity: true
+    note: "GPU는 세법상 내용연수보다 기술적 수명이 짧을 수 있다. 3년/5년 시나리오 병행 권장."
+
+  residual_value_ratio:
+    value: null
+    source: "TODO: 중고 시세 조사"
+    confidence: low
+    sensitivity: true
+
+# ---------------------------------------------------------------------------
+# 운영
+# ---------------------------------------------------------------------------
+operations:
+  maintenance_rate_annual:
+    value: null
+    source: "TODO: 벤더 유지보수 계약 조건"
+    confidence: low
+    sensitivity: true
+    note: "장비가 대비 연간 비율"
+
+  gpus_per_engineer:
+    value: null
+    source: "TODO: 추정. 운영 자동화 수준에 크게 의존"
+    confidence: low
+    sensitivity: true
+
+  engineer_cost_annual_krw:
+    value: null
+    source: "TODO: 공개 임금 통계"
+    confidence: low
+    sensitivity: true
+
+  rack_space_krw_per_month:
+    value: null
+    source: "TODO: IDC 상면 임대 시세"
+    confidence: low
+    sensitivity: true
+
+  network_capex_ratio:
+    value: null
+    source: "TODO: InfiniBand 등 인터커넥트. 다중 노드 학습 시 무시할 수 없는 비중"
+    confidence: low
+    sensitivity: true
+
+# ---------------------------------------------------------------------------
+# 민감도 분석 설정
+# ---------------------------------------------------------------------------
+sensitivity_analysis:
+  # sensitivity: true 인 모든 파라미터에 대해 아래 배수를 적용해
+  # 결론(손익분기 가동률 U*)이 뒤집히는지 검사한다.
+  multipliers: [0.7, 0.85, 1.0, 1.15, 1.3]
+  report_as_range: true
+  note: >
+    핵심 질문: "이 가정이 ±30% 흔들리면 결론이 뒤집히는가?"
+    뒤집힌다면 그 파라미터는 리포트 전면에 불확실성으로 명시해야 한다.
