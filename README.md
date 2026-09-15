@@ -29,14 +29,32 @@
 
 → **실측 가동률이 `U*`를 넘으면 소유, 아니면 임대.**
 
-여기에 워크로드 축을 하나 더 얹으면 기사보다 한 걸음 더 나간 결론이 나온다.
+## Week 1 실측 결과
 
-| 워크로드 | 특성 | 권장 조달 |
+파이프라인을 만들기 전에 데이터부터 확인했다. 결과가 예상보다 강했다.
+
+| 지표 | 값 |
+|---|---|
+| 할당 GPU-시간 | 2,266,602 |
+| 실사용 GPU-시간 | 842,842 |
+| **낭비율** | **62.8%** |
+
+*완료 인스턴스 기준 · 센서 커버리지 42.3% · 미완료 30.2% 제외(과소 추정 방향)*
+
+역할별로 보면 낭비가 어디에 몰려 있는지 드러난다.
+
+| 역할 | 할당 GPU-시간 | 낭비율 |
 |---|---|---|
-| 학습 / 실험 | 간헐적, 중단 허용 | 스팟 · 온디맨드 |
-| 추론 서빙 | 상시, 중단 불가 | 예약 · 소유 |
+| `ps` (파라미터 서버) | 239 | **99.2%** |
+| `JupyterTask` (노트북) | 1,489 | **96.1%** |
+| `tensorflow` | 294,036 | 77.0% |
+| `worker` | 1,408,198 | 67.8% |
+| `PyTorchWorker` | 546,644 | 41.7% |
 
-> 즉 "빌릴까 살까"는 조직 단위 질문이 아니라 **워크로드 단위 질문**이다.
+→ **"파라미터 서버에 GPU를 할당하지 마라", "유휴 노트북을 자동 종료하라"**
+평균 낭비율 하나보다 이런 역할 단위 권고가 실행 가능하다.
+
+전체 프로파일: [`docs/04-data-profile.md`](docs/04-data-profile.md)
 
 ## 3계층 구조
 
@@ -50,20 +68,31 @@ L1은 그 자체로 독립 제품이다. L2/L3가 실패해도 프로젝트는 �
 
 ## 데이터
 
-| 소스 | 역할 | 비고 |
+| 소스 | 역할 | 상태 |
 |---|---|---|
-| [Alibaba `cluster-trace-gpu-v2020`](https://github.com/alibaba/clusterdata/tree/master/cluster-trace-gpu-v2020) | 학습/배치 워크로드 | 요청 `plan_gpu` ↔ 실사용 `gpu_wrk_util` **둘 다 존재** |
-| [Azure `AzureLLMInferenceDataset`](https://github.com/Azure/AzurePublicDataset) | 추론 서빙 워크로드 | 요청별 입출력 토큰 수 |
-| AWS Price List API / Spot Price History | 가격 (실측) | 가격은 **하드코딩하지 않는다** |
-| `config/tco.yaml` | 온프레미스 TCO 가정 | API로 얻을 수 없는 값만, 전부 민감도 분석 대상 |
+| [Alibaba `cluster-trace-gpu-v2020`](https://github.com/alibaba/clusterdata/tree/master/cluster-trace-gpu-v2020) | 학습/배치 워크로드 | ✅ 수집 완료 (7개 테이블, 체크섬 검증) |
+| AWS Price List API / Spot Price History | 가격 (실측) | ⬜ 예정. 가격은 **하드코딩하지 않는다** (ADR-0004) |
+| `config/tco.yaml` | 온프레미스 TCO 가정 | ⬜ API로 얻을 수 없는 값만, 전부 민감도 분석 대상 |
+| ~~Azure LLM Inference~~ | ~~추론 서빙~~ | ❌ **개발 환경 egress 정책 차단** (ADR-0006) |
 
-자세한 내용과 **알려진 한계**는 [`docs/02-data-sources.md`](docs/02-data-sources.md) 참조.
+### 알려진 한계 — 숨기지 않는다
+
+- **추론 서빙 워크로드가 없다.** Azure 트레이스 접근이 막혀 학습/배치만 다룬다.
+  따라서 원 기사의 "24시간 상시 가동" 논점에 직접 답하지 못하고,
+  **간헐적 학습 워크로드에서의 소유 vs 임대**라는 축소된 질문에 답한다.
+- 트레이스는 2020년 V100/T4 세대이며 **가격 정보가 없다.**
+- 센서 커버리지 42.3%, 미완료 인스턴스 30.2% 제외.
+
+자세한 내용은 [`docs/02-data-sources.md`](docs/02-data-sources.md),
+[`docs/failures.md`](docs/failures.md) 참조.
 
 ## 문서
 
 | 문서 | 내용 |
 |---|---|
 | [`docs/00-project-charter.md`](docs/00-project-charter.md) | 문제 정의, 범위, 성공 기준 |
+| [`docs/04-data-profile.md`](docs/04-data-profile.md) | **실측 프로파일 (자동 생성)** |
+| [`docs/failures.md`](docs/failures.md) | **시행착오 기록** — 무엇이 틀렸고 어떻게 알아챘나 |
 | [`docs/01-metric-dictionary.md`](docs/01-metric-dictionary.md) | 모든 지표의 정의·공식·그레인 |
 | [`docs/02-data-sources.md`](docs/02-data-sources.md) | 데이터 소스, 스키마, 라이선스, 한계 |
 | [`docs/03-roadmap.md`](docs/03-roadmap.md) | 8주 로드맵과 주차별 완료 기준 |
@@ -71,14 +100,23 @@ L1은 그 자체로 독립 제품이다. L2/L3가 실패해도 프로젝트는 �
 
 ## 현재 상태
 
-**Week 1 / 8 — 문제 정의 및 설계 단계**
+**Week 1 완료 — 설계 및 데이터 검증**
 
 - [x] 문제 정의 · 프로젝트 헌장
-- [x] 지표 사전 (v1)
-- [x] 데이터 소스 조사 · 한계 문서화
-- [x] ADR 0000–0005
-- [ ] 트레이스 로컬 적재 및 스키마 실측 검증
+- [x] 지표 사전 v2 (실측 검증 완료)
+- [x] 데이터 수집 (`scripts/fetch_data.sh`, 체크섬 7/7 통과)
+- [x] Bronze 변환 (CSV 3.7GB → Parquet 1.15GB, 25초)
+- [x] 스키마 실측 검증 · 프로파일링
+- [x] ADR 0000–0007 (0006·0007은 실측 결과로 인한 설계 변경)
 - [ ] 배치 파이프라인 (Week 2–3)
+
+### 재현
+
+```bash
+bash scripts/fetch_data.sh                              # 수집 + 체크섬 검증
+PYTHONPATH=src python3 -m gpu_finops.ingest.to_bronze   # CSV → Parquet
+PYTHONPATH=src python3 -m gpu_finops.ingest.profile_raw # 프로파일 리포트 생성
+```
 
 ## AI 도구 사용에 관하여
 

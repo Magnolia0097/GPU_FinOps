@@ -75,7 +75,16 @@
 
 ---
 
-## 2. Azure LLM Inference Dataset — 추론 서빙 축
+## 2. ~~Azure LLM Inference Dataset — 추론 서빙 축~~ ❌ 사용 불가
+
+> **2026-09-15 — 이 축은 제거되었다.**
+>
+> 개발 환경의 egress 정책이 Azure Blob Storage 호스트를 차단했다.
+> `azurepublicdatasettraces.blob.core.windows.net` → 403 (정책 거부)
+>
+> 워크로드 축은 Alibaba 트레이스의 `task_name` 으로 대체했다 (**ADR-0006**).
+> 아래 내용은 향후 접근이 가능해질 때를 위한 참고용으로 남긴다.
+
 
 **출처**: https://github.com/Azure/AzurePublicDataset
 

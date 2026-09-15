@@ -15,10 +15,12 @@ ADR은 그 판단이 실제로 있었다는 증거다.
 |---|---|---|
 | [0000](0000-use-architecture-decision-records.md) | ADR을 사용한다 | 채택 |
 | [0001](0001-three-layer-decision-pipeline.md) | 3계층(진단·예측·처방) 구조를 채택한다 | 채택 |
-| [0002](0002-dataset-selection.md) | Alibaba + Azure 두 트레이스를 사용한다 | 채택 |
+| [0002](0002-dataset-selection.md) | Alibaba + Azure 두 트레이스를 사용한다 | 부분 대체 (→0006) |
 | [0003](0003-local-lakehouse-over-managed-cloud.md) | 관리형 클라우드 대신 로컬 레이크하우스를 쓴다 | 채택 |
 | [0004](0004-pricing-from-live-apis.md) | 가격은 실측 API에서만 가져온다 | 채택 |
 | [0005](0005-ml-only-when-it-beats-baseline.md) | ML은 베이스라인을 이겼을 때만 채택한다 | 채택 |
+| [0006](0006-workload-classification-by-task-name.md) | 워크로드 분류를 `task_name` 기반으로 재정의 | 채택 |
+| [0007](0007-exclude-censored-instances.md) | 미완료 인스턴스를 집계에서 제외 | 채택 |
 
 ## 작성 규칙
 
